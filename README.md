@@ -37,3 +37,32 @@ def generate_fake_records(num_customers):
     return records
 
 fake_records = generate_fake_records(10000)
+
+# Output to CSV file
+csv_file = 'fake_records.csv'
+
+# Extract column names
+column_names = ['Name', 'Email', 'Question', 'Type', 'Options', 'Answer']
+
+with open(csv_file, 'w', newline='') as file:
+    writer = csv.DictWriter(file, fieldnames=column_names)
+    writer.writeheader()
+    for record in fake_records:
+        name = record['name']
+        email = record['email']
+        answers = record['answers']
+        for answer in answers:
+            question = answer['question']
+            question_type = answer['type']
+            options = answer['options']
+            answer_value = answer['answer']
+            writer.writerow({
+                'Name': name,
+                'Email': email,
+                'Question': question,
+                'Type': question_type,
+                'Options': options,
+                'Answer': answer_value
+            })
+
+print(f"Fake records saved to {csv_file} successfully.")
