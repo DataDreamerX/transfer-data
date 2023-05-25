@@ -1,9 +1,10 @@
-instring = "She said, 'I'm happy' but I don't believe her."
-words = instring.split()
+import re
 
-for i, word in enumerate(words):
-    if "'" in word and not word.endswith("'"):
-        words[i] = '"' + word.replace("'", "") + '"'
+# Define the input string
+input_string = "It is important to use contractions when you're writing. We'll try our best, but we can't promise anything."
 
-outstring = ' '.join(words)
-print(outstring)
+# Use regex to substitute the words
+output_string = re.sub(r"\b(it|you|we|can)'(\s*(s|re|ll|t)\b)", r"\1'\2", input_string)
+
+# Print the output string
+print(output_string)
