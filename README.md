@@ -1,27 +1,29 @@
-import pandas as pd
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.model_selection import train_test_split
-from sklearn.svm import SVC
-from sklearn.metrics import accuracy_score
+import json
 
-# Load the data
-data = pd.read_csv('data.csv')
+def add_item_with_highest_accuracy(arr, new_item, n):
+    # Convert JSON objects to dictionaries
+    arr = [json.loads(item) for item in arr]
+    new_item = json.loads(new_item)
 
-# Split the data into training and testing sets
-X_train, X_test, y_train, y_test = train_test_split(data['text'], data['label'], test_size=0.2, random_state=42)
+    # Sort the array based on "accuracy" in descending order
+    arr.sort(key=lambda x: x['accuracy'], reverse=True)
 
-# Create a TF-IDF vectorizer
-vectorizer = TfidfVectorizer()
-X_train = vectorizer.fit_transform(X_train)
-X_test = vectorizer.transform(X_test)
+    # Keep only the first "n" items
+    arr = arr[:n]
 
-# Train the classifier
-classifier = SVC(kernel='linear')
-classifier.fit(X_train, y_train)
+    # Append the new item
+    arr.append(new_item)
 
-# Make predictions on the test set
-y_pred = classifier.predict(X_test)
+    return arr
 
-# Evaluate the model
-accuracy = accuracy_score(y_test, y_pred)
-print("Accuracy:", accuracy)
+# Example usage
+my_array = [
+    '{"class": "abc", "accuracy": 0.9}',
+    '{"class": "def", "accuracy": 0.8}',
+    '{"class": "xyz", "accuracy": 0.95}'
+]
+new_item = '{"class": "ghi", "accuracy": 0.92}'
+n = 2
+
+updated_array = add_item_with_highest_accuracy(my_array, new_item, n)
+print(updated_array)
