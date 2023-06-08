@@ -16,12 +16,15 @@ def calculate_cosine_similarity(short_string, long_string):
     short_vector = Counter(short_tokens)
     long_vector = Counter(long_tokens)
 
+    # Get the unique tokens from both vectors
+    all_tokens = set(short_vector.keys()).union(set(long_vector.keys()))
+
     # Compute dot product
-    dot_product = sum(short_vector[token] * long_vector[token] for token in short_vector)
+    dot_product = sum(short_vector[token] * long_vector[token] for token in all_tokens)
 
     # Compute magnitudes
-    short_magnitude = math.sqrt(sum(short_vector[token]**2 for token in short_vector))
-    long_magnitude = math.sqrt(sum(long_vector[token]**2 for token in long_vector))
+    short_magnitude = math.sqrt(sum(short_vector[token]**2 for token in all_tokens))
+    long_magnitude = math.sqrt(sum(long_vector[token]**2 for token in all_tokens))
 
     # Compute cosine similarity
     cosine_similarity = dot_product / (short_magnitude * long_magnitude)
