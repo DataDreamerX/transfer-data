@@ -1,29 +1,35 @@
-import json
+import re
+import math
+from collections import Counter
 
-def add_item_with_highest_accuracy(arr, new_item, n):
-    # Convert JSON objects to dictionaries
-    arr = [json.loads(item) for item in arr]
-    new_item = json.loads(new_item)
+def preprocess_text(text):
+    # Remove punctuation and special characters, convert to lowercase
+    text = re.sub(r"[^\w\s]", "", text.lower())
+    return text
 
-    # Sort the array based on "accuracy" in descending order
-    arr.sort(key=lambda x: x['accuracy'], reverse=True)
+def calculate_cosine_similarity(short_string, long_string):
+    # Tokenize and preprocess the strings
+    short_tokens = preprocess_text(short_string).split()
+    long_tokens = preprocess_text(long_string).split()
 
-    # Keep only the first "n" items
-    arr = arr[:n]
+    # Create frequency vectors
+    short_vector = Counter(short_tokens)
+    long_vector = Counter(long_tokens)
 
-    # Append the new item
-    arr.append(new_item)
+    # Compute dot product
+    dot_product = sum(short_vector[token] * long_vector[token] for token in short_vector)
 
-    return arr
+    # Compute magnitudes
+    short_magnitude = math.sqrt(sum(short_vector[token]**2 for token in short_vector))
+    long_magnitude = math.sqrt(sum(long_vector[token]**2 for token in long_vector))
+
+    # Compute cosine similarity
+    cosine_similarity = dot_product / (short_magnitude * long_magnitude)
+
+    return cosine_similarity
 
 # Example usage
-my_array = [
-    '{"class": "abc", "accuracy": 0.9}',
-    '{"class": "def", "accuracy": 0.8}',
-    '{"class": "xyz", "accuracy": 0.95}'
-]
-new_item = '{"class": "ghi", "accuracy": 0.92}'
-n = 2
-
-updated_array = add_item_with_highest_accuracy(my_array, new_item, n)
-print(updated_array)
+short_string = "apple"
+long_string = "apples are delicious"
+similarity = calculate_cosine_similarity(short_string, long_string)
+print(f"Cosine similarity: {similarity}")
