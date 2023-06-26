@@ -12,6 +12,15 @@ def list_containers():
     for container in containers:
         print(container.name)
 
+def list_blobs(container_name):
+    blob_service_client = BlobServiceClient(account_url=f"https://{account_name}.blob.core.windows.net", credential=account_key)
+    container_client = blob_service_client.get_container_client(container_name)
+    blobs = container_client.list_blobs()
+
+    print(f"Blobs in container '{container_name}':")
+    for blob in blobs:
+        print(blob.name)
+
 def download_blob(container_name, blob_name):
     blob_service_client = BlobServiceClient(account_url=f"https://{account_name}.blob.core.windows.net", credential=account_key)
     container_client = blob_service_client.get_container_client(container_name)
@@ -39,5 +48,6 @@ list_containers()
 container_name = "<your-container-name>"
 blob_name = "<your-blob-name>"
 
+list_blobs(container_name)
 download_blob(container_name, blob_name)
 download_all_blobs(container_name)
