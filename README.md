@@ -13,7 +13,7 @@ def generate_similarity_matrix(num_items):
 def group_similar_items(similarity_matrix):
     # Perform K-means clustering for different numbers of clusters
     silhouette_scores = []
-    clusters_range = range(2, len(similarity_matrix) + 1)
+    clusters_range = range(2, len(similarity_matrix))
     for num_clusters in clusters_range:
         kmeans = KMeans(n_clusters=num_clusters)
         kmeans.fit(similarity_matrix)
@@ -51,7 +51,7 @@ for group_id, items in result.items():
     print(f"Group {group_id + 1}: {items}")
 
 # Plot silhouette scores
-plt.plot(range(2, num_items + 1), silhouette_scores)
+plt.plot(range(2, num_items), silhouette_scores)
 plt.title('Silhouette Analysis')
 plt.xlabel('Number of Clusters')
 plt.ylabel('Silhouette Score')
