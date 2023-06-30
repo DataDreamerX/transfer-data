@@ -1,8 +1,1 @@
-http:
-  - match:
-      - uri:
-          prefix: /websocket-path
-    route:
-      - destination:
-          host: <destination-service>
-    websockets: true
+kubectl get pods -n istio-system -l app=istiod -o jsonpath='{.items[0].metadata.labels.istio\.io/rev}'
