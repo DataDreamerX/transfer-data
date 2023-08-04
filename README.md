@@ -1,6 +1,3 @@
-spring:
-  datasource:
-    url: jdbc:postgresql://localhost:5432/your_database_name
-    username: your_username
-    password: your_password
-    driver-class-name: org.postgresql.Driver
+sudo add-apt-repository "$(wget -qO- https://packages.microsoft.com/config/ubuntu/21.04/prod.list)"
+
+sudo add-apt-repository "$(wget -qO- https://packages.microsoft.com/config/ubuntu/20.04/prod.list)"
