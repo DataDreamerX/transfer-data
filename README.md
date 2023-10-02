@@ -1,12 +1,18 @@
-Last Visit:
 
-Description: Most recent user interaction timestamp.
-Last Visit Start Timestamp:
+Certainly, here are even shorter descriptions for these fields:
 
-Description: Start time of the last user session.
-Last Event Timestamp:
+Week Since First Visit:
 
-Description: Timestamp of the last user action.
-First Visit:
+Description: Weeks since the first visit.
+Go365.com Visits (Lifetime):
 
-Description: Timestamp of the initial user interaction.
+Description: Lifetime visits to Go365.com.
+Individual Products Quotes Obtained (Lifetime):
+
+Description: Lifetime product quotes obtained.
+Average Visits Per Week:
+
+Description: Average weekly visits.
+H.com Provider Page Views:
+
+Description: Page views on H.com provider pages.
