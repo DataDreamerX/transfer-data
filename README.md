@@ -1,6 +1,12 @@
-[sudo add-apt-repository "$(wget -qO- https://packages.microsoft.com/config/ubuntu/21.04/prod.list)"
+Last Visit:
 
-sudo add-apt-repository "$(wget -qO- https://packages.microsoft.com/config/ubuntu/20.04/prod.list)"
-](https://packages.microsoft.com/ubuntu/20.04/prod/pool/main/m/msodbcsql17/)https://packages.microsoft.com/ubuntu/20.04/prod/pool/main/m/msodbcsql17/
+Description: Most recent user interaction timestamp.
+Last Visit Start Timestamp:
 
-https://packages.microsoft.com/ubuntu/20.04/prod/pool/main/m/msodbcsql17/
+Description: Start time of the last user session.
+Last Event Timestamp:
+
+Description: Timestamp of the last user action.
+First Visit:
+
+Description: Timestamp of the initial user interaction.
