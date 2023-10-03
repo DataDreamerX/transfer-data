@@ -1,22 +1,15 @@
-Slide Title: "Visitor Profiles in AudienceStream"
+Audience Definition:
 
-Slide Content:
+A group of visitor profiles with shared attributes.
+AudienceStream Purpose:
 
-Visitor Profile Defined:
+The target for real-time actions through various integrations.
+Integration Examples:
 
-Unified view of customer interactions across channels.
-Relies on a unique visitor ID for cross-platform recognition.
-Profile Components:
+Email, online advertising, social, and customer relationship management.
+Audience Benefits:
 
-Attributes describing customer behavior and engagement.
-Key Benefits:
+Enhanced personalization and targeted marketing.
+Key Takeaway:
 
-Personalization and targeted marketing.
-Basis for audience creation.
-Why It Matters:
-
-Better understanding of customers.
-Enhanced marketing effectiveness.
-Summary:
-
-Visitor profiles in AudienceStream optimize customer experiences and marketing strategies.
+Audiences are groups of profiles with shared attributes used for real-time actions across multiple integrations.
