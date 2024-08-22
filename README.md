@@ -1,2 +1,1 @@
-
-"An audience is a group of visitors defined by shared attributes. Conditions set the attribute values, and more conditions make the audience more specific. Audiences are dynamic, allowing visitors to join or leave based on real-time events."
+Create a Playwright test script that opens a browser, navigates to 'https://example.com', verifies the page title is 'Example Domain', clicks on the 'More information...' link, and verifies that the user is navigated to a page with 'iana.org' in the URL.
