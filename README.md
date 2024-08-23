@@ -1,1 +1,1 @@
-Create a Playwright test script that opens a browser, navigates to 'https://example.com', verifies the page title is 'Example Domain', clicks on the 'More information...' link, and verifies that the user is navigated to a page with 'iana.org' in the URL.
+implementation 'com.theokanning.openai-gpt3-java:client:0.12.0'
