@@ -20,11 +20,23 @@ function getSessionStorage() {
     return sessionStorageData;
 }
 
+// Function to get all cookies
+function getCookies() {
+    let cookies = document.cookie.split('; ');
+    let cookieData = {};
+    cookies.forEach(cookie => {
+        let [name, value] = cookie.split('=');
+        cookieData[name] = value;
+    });
+    return cookieData;
+}
+
 // Function to export data as JSON file
 function exportStorageDataAsJSON() {
     const data = {
         localStorage: getLocalStorage(),
-        sessionStorage: getSessionStorage()
+        sessionStorage: getSessionStorage(),
+        cookies: getCookies()
     };
     const json = JSON.stringify(data, null, 2);
     const blob = new Blob([json], { type: 'application/json' });
