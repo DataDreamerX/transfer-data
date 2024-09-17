@@ -2,8 +2,8 @@ import requests
 from bs4 import BeautifulSoup
 from lxml import etree
 
-# Function to extract form-related XPaths from a URL
-def extract_form_xpaths_from_url(url):
+# Function to extract form-related XPaths and their corresponding labels
+def extract_form_xpaths_and_labels_from_url(url):
     # Fetch the page content
     response = requests.get(url)
     
@@ -24,30 +24,56 @@ def extract_form_xpaths_from_url(url):
             element = parent
         return '/html/' + '/'.join(path_parts[::-1])
 
+    # Function to find the label for a form element (if exists)
+    def find_label(element):
+        # Check if the input element has an id and there's a <label> with a matching 'for' attribute
+        element_id = element.get("id")
+        if element_id:
+            label = tree.xpath(f"//label[@for='{element_id}']")
+            if label:
+                return label[0].text.strip()
+
+        # Otherwise, check if the <label> directly wraps the input element
+        parent = element.getparent()
+        if parent.tag == "label":
+            return parent.text.strip()
+
+        return None
+
     # Find all form elements
     forms = tree.xpath('//form')
 
-    form_related_xpaths = []
+    form_related_info = []
 
     for form in forms:
         # Get the form's XPath
         form_xpath = get_xpath(form)
-        form_related_xpaths.append(form_xpath)
+        form_related_info.append({
+            'element': 'form',
+            'xpath': form_xpath,
+            'label': 'Form'  # You can customize this if needed
+        })
 
         # Find all inputs, buttons, and other interactive elements within the form
         form_elements = form.xpath('.//input | .//button | .//select | .//textarea | .//label')
-        
-        # Extract XPath for each element inside the form
+
+        # Extract XPath and label for each element inside the form
         for element in form_elements:
             element_xpath = get_xpath(element)
-            form_related_xpaths.append(element_xpath)
+            label_text = find_label(element)
 
-    return form_related_xpaths
+            form_related_info.append({
+                'element': element.tag,
+                'xpath': element_xpath,
+                'label': label_text if label_text else 'No Label'
+            })
+
+    return form_related_info
 
 # Example usage
 url = 'https://example.com'  # Replace with your URL
-form_xpaths = extract_form_xpaths_from_url(url)
+form_info = extract_form_xpaths_and_labels_from_url(url)
 
-# Print the extracted XPaths related to forms
-for xpath in form_xpaths:
-    print(xpath)
+# Print the extracted XPaths and labels
+for info in form_info:
+    print(f"Element: {info['element']}, XPath: {info['xpath']}, Label: {info['label']}")
