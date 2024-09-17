@@ -2,7 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 from lxml import etree
 
-# Function to extract form-related XPaths, labels, and IDs from a URL
+# Function to extract form-related XPaths, labels, IDs, names, types, and classes from a URL
 def extract_form_elements_from_url(url):
     # Fetch the page content
     response = requests.get(url)
@@ -40,13 +40,22 @@ def extract_form_elements_from_url(url):
             element_data['xpath'] = get_xpath(element)
 
             # Get the ID (if any)
-            element_id = element.get('id')
-            element_data['id'] = element_id if element_id else None
+            element_data['id'] = element.get('id', None)
+
+            # Get the Name (if any)
+            element_data['name'] = element.get('name', None)
+
+            # Get the Type (if any)
+            element_data['type'] = element.get('type', None)
+
+            # Get the Class (if any)
+            element_data['class'] = element.get('class', None)
 
             # Try to find the associated label (either by `for` attribute or wrapping label)
             label_text = None
 
             # Find label with a `for` attribute matching the element's `id`
+            element_id = element.get('id')
             if element_id:
                 label = tree.xpath(f'//label[@for="{element_id}"]')
                 if label:
@@ -70,9 +79,12 @@ def extract_form_elements_from_url(url):
 url = 'https://example.com'  # Replace with your URL
 form_elements = extract_form_elements_from_url(url)
 
-# Print the extracted XPaths, IDs, and labels
+# Print the extracted XPaths, IDs, names, types, classes, and labels
 for element in form_elements:
     print(f"XPath: {element['xpath']}")
     print(f"ID: {element['id']}")
+    print(f"Name: {element['name']}")
+    print(f"Type: {element['type']}")
+    print(f"Class: {element['class']}")
     print(f"Label: {element['label']}")
     print('-' * 40)
