@@ -1,90 +1,38 @@
-import requests
-from bs4 import BeautifulSoup
-from lxml import etree
+from playwright.sync_api import sync_playwright
 
-# Function to extract form-related XPaths, labels, IDs, names, types, and classes from a URL
-def extract_form_elements_from_url(url):
-    # Fetch the page content
-    response = requests.get(url)
+def get_login_form_elements(page):
+    # Assuming that forms related to login contain specific keywords in form elements like 'login' or 'password'
+    elements = page.query_selector_all("input[type='text'], input[type='password'], input[type='email'], input[type='submit'], input[type='button'], button, select")
+
+    login_elements = []
     
-    # Parse the page with lxml etree
-    parser = etree.HTMLParser()
-    tree = etree.fromstring(response.content, parser)
+    for element in elements:
+        try:
+            type_attr = element.get_attribute('type')
+            class_attr = element.get_attribute('class')
+            id_attr = element.get_attribute('id')
+            
+            # Filtering elements that likely belong to login forms by checking for keywords
+            if any(keyword in (id_attr or '').lower() for keyword in ['login', 'username', 'email', 'password']):
+                locator = element
+                login_elements.append({
+                    "locator": locator,
+                    "type": type_attr,
+                    "class": class_attr,
+                    "id": id_attr
+                })
+        except Exception as e:
+            print(f"Error processing element: {e}")
+    
+    return login_elements
 
-    # Function to build the XPath for each element
-    def get_xpath(element):
-        path_parts = []
-        while element is not None:
-            parent = element.getparent()
-            if parent is None:
-                break
-            siblings = parent.xpath('*')
-            index = siblings.index(element) + 1
-            path_parts.append(f"{element.tag}[{index}]")
-            element = parent
-        return '/html/' + '/'.join(path_parts[::-1])
-
-    # Find all form elements
-    forms = tree.xpath('//form')
-
-    form_elements_data = []
-
-    for form in forms:
-        # Get all form fields (input, select, textarea, button) within the form
-        form_elements = form.xpath('.//input | .//button | .//select | .//textarea')
-
-        for element in form_elements:
-            element_data = {}
-
-            # Get the XPath
-            element_data['xpath'] = get_xpath(element)
-
-            # Get the ID (if any)
-            element_data['id'] = element.get('id', None)
-
-            # Get the Name (if any)
-            element_data['name'] = element.get('name', None)
-
-            # Get the Type (if any)
-            element_data['type'] = element.get('type', None)
-
-            # Get the Class (if any)
-            element_data['class'] = element.get('class', None)
-
-            # Try to find the associated label (either by `for` attribute or wrapping label)
-            label_text = None
-
-            # Find label with a `for` attribute matching the element's `id`
-            element_id = element.get('id')
-            if element_id:
-                label = tree.xpath(f'//label[@for="{element_id}"]')
-                if label:
-                    label_text = label[0].text.strip()
-
-            # If no `for` label, check if the element is wrapped in a label
-            if not label_text:
-                parent_label = element.getparent()
-                if parent_label.tag == 'label' and parent_label.text:
-                    label_text = parent_label.text.strip()
-
-            # Store the label text (if any)
-            element_data['label'] = label_text if label_text else None
-
-            # Append the element data to the list
-            form_elements_data.append(element_data)
-
-    return form_elements_data
-
-# Example usage
-url = 'https://example.com'  # Replace with your URL
-form_elements = extract_form_elements_from_url(url)
-
-# Print the extracted XPaths, IDs, names, types, classes, and labels
-for element in form_elements:
-    print(f"XPath: {element['xpath']}")
-    print(f"ID: {element['id']}")
-    print(f"Name: {element['name']}")
-    print(f"Type: {element['type']}")
-    print(f"Class: {element['class']}")
-    print(f"Label: {element['label']}")
-    print('-' * 40)
+with sync_playwright() as p:
+    browser = p.chromium.launch(headless=False)
+    page = browser.new_page()
+    page.goto('https://example.com/login')  # Replace with your login page URL
+    login_form_elements = get_login_form_elements(page)
+    
+    for elem in login_form_elements:
+        print(elem)
+    
+    browser.close()
