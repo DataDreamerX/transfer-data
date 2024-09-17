@@ -1,26 +1,41 @@
-from playwright.sync_api import sync_playwright
+import requests
+from bs4 import BeautifulSoup
+from lxml import etree
 
-def get_form_locators(page):
-    # Get all input elements
-    inputs = page.locator('input')
-    # Get all select elements
-    selects = page.locator('select')
-    # Get all textarea elements
-    textareas = page.locator('textarea')
-    # Get all button elements
-    buttons = page.locator('button')
+# Function to extract all XPaths from a URL
+def extract_xpaths_from_url(url):
+    # Fetch the page content
+    response = requests.get(url)
+    
+    # Parse the page with lxml etree
+    parser = etree.HTMLParser()
+    tree = etree.fromstring(response.content, parser)
 
-    # Combine all locators into a list
-    form_elements = [inputs, selects, textareas, buttons]
+    # Function to build the XPath for each element
+    def get_xpath(element):
+        path_parts = []
+        while element is not None:
+            parent = element.getparent()
+            if parent is None:
+                break
+            siblings = parent.xpath('*')
+            index = siblings.index(element) + 1
+            path_parts.append(f"{element.tag}[{index}]")
+            element = parent
+        return '/html/' + '/'.join(path_parts[::-1])
 
-    # Iterate through each locator and print the count of elements found
-    for locator in form_elements:
-        count = locator.count()
-        print(f'Found {count} elements for {locator}')
+    # Extract all elements and their corresponding XPaths
+    all_xpaths = []
+    for element in tree.xpath('//*'):  # Select all elements
+        xpath = get_xpath(element)
+        all_xpaths.append(xpath)
 
-with sync_playwright() as p:
-    browser = p.chromium.launch(headless=False)
-    page = browser.new_page()
-    page.goto('https://example.com')  # Replace with your target URL
-    get_form_locators(page)
-    browser.close()
+    return all_xpaths
+
+# Example usage
+url = 'https://example.com'  # Replace with your URL
+xpaths = extract_xpaths_from_url(url)
+
+# Print the extracted XPaths
+for xpath in xpaths:
+    print(xpath)
