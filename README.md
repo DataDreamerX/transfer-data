@@ -1,38 +1,45 @@
 from playwright.sync_api import sync_playwright
 
-def get_login_form_elements(page):
-    # Assuming that forms related to login contain specific keywords in form elements like 'login' or 'password'
-    elements = page.query_selector_all("input[type='text'], input[type='password'], input[type='email'], input[type='submit'], input[type='button'], button, select")
+def get_element_xpath(element):
+    """
+    Function to get the XPath of a given element by executing a JS function on the page.
+    """
+    return element.evaluate('''
+        (element) => {
+            const getXPath = (element) => {
+                if (element.id !== '') {
+                    return '//*[@id="' + element.id + '"]';
+                }
+                if (element === document.body) {
+                    return '/html/body';
+                }
 
-    login_elements = []
-    
-    for element in elements:
-        try:
-            type_attr = element.get_attribute('type')
-            class_attr = element.get_attribute('class')
-            id_attr = element.get_attribute('id')
-            
-            # Filtering elements that likely belong to login forms by checking for keywords
-            if any(keyword in (id_attr or '').lower() for keyword in ['login', 'username', 'email', 'password']):
-                locator = element
-                login_elements.append({
-                    "locator": locator,
-                    "type": type_attr,
-                    "class": class_attr,
-                    "id": id_attr
-                })
-        except Exception as e:
-            print(f"Error processing element: {e}")
-    
-    return login_elements
+                let ix = 0;
+                const siblings = element.parentNode ? element.parentNode.childNodes : [];
+                for (let i = 0; i < siblings.length; i++) {
+                    const sibling = siblings[i];
+                    if (sibling === element) {
+                        return getXPath(element.parentNode) + '/' + element.tagName.toLowerCase() + '[' + (ix + 1) + ']';
+                    }
+                    if (sibling.nodeType === 1 && sibling.tagName === element.tagName) {
+                        ix++;
+                    }
+                }
+            };
+            return getXPath(element);
+        }
+    ''')
 
 with sync_playwright() as p:
     browser = p.chromium.launch(headless=False)
     page = browser.new_page()
     page.goto('https://example.com/login')  # Replace with your login page URL
-    login_form_elements = get_login_form_elements(page)
     
-    for elem in login_form_elements:
-        print(elem)
-    
+    # Select the element you want to get the XPath for
+    element = page.query_selector("input[type='text']")  # Adjust this selector as needed
+
+    if element:
+        xpath = get_element_xpath(element)
+        print(f"XPath: {xpath}")
+
     browser.close()
