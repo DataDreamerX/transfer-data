@@ -1,66 +1,18 @@
-from playwright.sync_api import sync_playwright
-
-def get_form_elements(page):
-    """
-    Extract form elements grouped by their containing form.
-    """
-    # Select all forms
-    forms = page.query_selector_all('form')
-    grouped_elements = []
-
-    for form in forms:
-        form_id = form.get_attribute('id') or 'no-id'
-        form_name = form.get_attribute('name') or 'no-name'
-
-        # Get all relevant elements within the form
-        elements = form.query_selector_all("input[type='text'], input[type='password'], input[type='email'], input[type='submit'], input[type='button'], button, select")
-
-        form_elements = []
-        
-        for element in elements:
-            try:
-                type_attr = element.get_attribute('type')
-                class_attr = element.get_attribute('class')
-                id_attr = element.get_attribute('id')
-                
-                # Extract button text if it's a button element
-                text = ""
-                if element.tag_name == 'button' or (type_attr in ['submit', 'button']):
-                    text = element.inner_text()
-
-                # Collect element information
-                form_elements.append({
-                    "locator": element,
-                    "type": type_attr,
-                    "class": class_attr,
-                    "id": id_attr,
-                    "text": text
-                })
-            except Exception as e:
-                print(f"Error processing element: {e}")
-
-        if form_elements:
-            grouped_elements.append({
-                "form_id": form_id,
-                "form_name": form_name,
-                "elements": form_elements
-            })
-
-    return grouped_elements
-
-with sync_playwright() as p:
-    browser = p.chromium.launch(headless=False)
-    page = browser.new_page()
-    page.goto('https://example.com/login')  # Replace with your login page URL
-
-    # Wait for the page to fully load
-    page.wait_for_load_state('load')
-
-    grouped_form_elements = get_form_elements(page)
-    
-    for form in grouped_form_elements:
-        print(f"Form ID: {form['form_id']}, Form Name: {form['form_name']}")
-        for elem in form['elements']:
-            print(elem)
-    
-    browser.close()
+Step-by-Step Guide to Download and Use the Application
+1. Download the Application
+Visit the Website: Open your web browser and go to the website where the application is hosted.
+Locate the Download Link: Find the link to download the application. It should be a ZIP file.
+Download the ZIP File: Click on the download link. Your browser will start downloading the ZIP file. Save it to a location on your computer where you can easily find it, like the Downloads folder.
+2. Extract the ZIP File
+Open the Downloads Folder: Navigate to the folder where you saved the ZIP file.
+Extract the ZIP File: Right-click on the ZIP file and select “Extract All…” or use a tool like 7-Zip or WinRAR to extract the contents. Choose a destination folder where the extracted files will be saved.
+3. Run the Application
+Navigate to the Extracted Folder: Open the folder where you extracted the files.
+Locate the Application File: Find the executable file (usually with a .exe extension) within the extracted folder.
+Run the Application: Double-click the executable file to run the application.
+4. Using the Application
+Input Domains: In the text box provided, input the domains you want to copy cookies from. Make sure to separate each domain with a semicolon (;).
+Copy Cookies: Click the button labeled “Copy Cookies” to copy the cookies of the specified websites.
+5. Troubleshooting
+If the application doesn’t run: Ensure that your system meets the application’s requirements and that you have the necessary permissions to run the executable file.
+If you encounter any errors: Check the application’s documentation or contact support for further assistance.
