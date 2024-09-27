@@ -1,46 +1,31 @@
-import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
+# Resample by 5-minute intervals and aggregate query latency and result count
+pdf.set_index('timestamp', inplace=True)
+resampled_pdf = pdf.groupby('category').resample('5T').agg({
+    'query_latency': 'mean',
+    'result_count': 'sum'  # Can also use 'mean' or 'median'
+}).reset_index()
 
-# Sample PySpark DataFrame
-data = [("Category A", 1.2), ("Category B", 3.5), ("Category A", 2.0), 
-        ("Category B", 4.1), ("Category A", 3.0), ("Category C", 1.5)]
-df = spark.createDataFrame(data, ["category", "query_latency"])
+# Set up the plot style with a green color palette
+sns.set(style="whitegrid")
+green_palette = sns.color_palette("Greens_d", len(resampled_pdf['category'].unique()))
 
-# Convert PySpark DataFrame to Pandas
-pdf = df.toPandas()
+# Create a dual-axis plot
+fig, ax1 = plt.subplots(figsize=(12, 6))
 
-# Function to show highest or lowest latency
-def show_latency(pdf, latency_type="highest"):
-    if latency_type == "highest":
-        # Get category with the highest average latency
-        max_latency_category = pdf.groupby('category')['query_latency'].mean().idxmax()
-        max_latency = pdf.groupby('category')['query_latency'].mean().max()
-        print(f"Category with the highest latency: {max_latency_category} (Latency: {max_latency:.2f} seconds)")
-    elif latency_type == "lowest":
-        # Get category with the lowest average latency
-        min_latency_category = pdf.groupby('category')['query_latency'].mean().idxmin()
-        min_latency = pdf.groupby('category')['query_latency'].mean().min()
-        print(f"Category with the lowest latency: {min_latency_category} (Latency: {min_latency:.2f} seconds)")
+# Plot latency on the primary y-axis
+sns.lineplot(x="timestamp", y="query_latency", hue="category", data=resampled_pdf, marker="o", palette=green_palette, ax=ax1)
+ax1.set_ylabel('Query Latency (seconds)', fontsize=12)
+ax1.set_xlabel('Time', fontsize=12)
+ax1.tick_params(axis='x', rotation=45)
 
-    # Plot boxplot
-    plt.figure(figsize=(10, 6))
-    sns.boxplot(x="category", y="query_latency", data=pdf)
-    
-    # Highlight the max/min latency category in the plot
-    if latency_type == "highest":
-        plt.title(f"Category with Highest Latency: {max_latency_category}")
-        sns.boxplot(x="category", y="query_latency", data=pdf[pdf["category"] == max_latency_category], color='red')
-    elif latency_type == "lowest":
-        plt.title(f"Category with Lowest Latency: {min_latency_category}")
-        sns.boxplot(x="category", y="query_latency", data=pdf[pdf["category"] == min_latency_category], color='green')
+# Create a secondary y-axis to plot result count
+ax2 = ax1.twinx()
+sns.lineplot(x="timestamp", y="result_count", hue="category", data=resampled_pdf, marker="x", palette=green_palette, ax=ax2, linestyle="--")
+ax2.set_ylabel('Result Count', fontsize=12)
 
-    plt.xlabel("Category")
-    plt.ylabel("Query Latency (seconds)")
-    plt.show()
+# Add plot title and adjust layout
+plt.title("Query Latency and Result Count Over 5-Minute Intervals by Category", fontsize=14)
+plt.tight_layout()
 
-# Example usage: Get user input for highest or lowest latency
-latency_type = input("Enter 'highest' or 'lowest' to see the corresponding category latency: ").strip().lower()
-
-# Call function with user input
-show_latency(pdf, latency_type)
+# Show the plot
+plt.show()
