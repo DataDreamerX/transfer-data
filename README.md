@@ -1,13 +1,6 @@
-TimeIndex = 
-ADDCOLUMNS (
-    CALENDAR(MIN('YourTable'[Timestamp]), MAX('YourTable'[Timestamp])),
-    "Time", TIME(HOUR('YourTable'[Timestamp]), MINUTE('YourTable'[Timestamp]), 0)
+FrequencyTable = 
+SUMMARIZE(
+    'YourGroupedTable', 
+    'YourGroupedTable'[RequestCount], 
+    "SessionCount", COUNT('YourGroupedTable'[SessionID])
 )
-
-FilledValue = 
-IF (
-    ISBLANK ( SUM('YourTable'[YourValueColumn]) ),
-    0,
-    SUM('YourTable'[YourValueColumn])
-)
-
