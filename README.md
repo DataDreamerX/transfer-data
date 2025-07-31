@@ -1,6 +1,1 @@
-FrequencyTable = 
-SUMMARIZE(
-    'YourGroupedTable', 
-    'YourGroupedTable'[RequestCount], 
-    "SessionCount", COUNT('YourGroupedTable'[SessionID])
-)
+AIzaSyBOcE5ECiuCkIgVOMOfhgg_rZcDN-buI
