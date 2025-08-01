@@ -1,9 +1,1 @@
-myfile = client.files.upload(file='path/to/sample.mp3')
-prompt = 'Generate a transcript of the speech.'
-
-response = client.models.generate_content(
-  model='gemini-2.5-flash',
-  contents=[prompt, myfile]
-)
-
-print(response.text)
+npx shadcn@latest add "https://v0.dev/chat/b/b_Q7zAzIz2pKc?token=eyJhbGciOiJkaXIiLCJlbmMiOiJBMjU2R0NNIn0..B5-Udi_TWbsyTK--.ow7M_JB_-yX0W97LaKcdZmjQVGQo3s95NHip6lZyl50ZsaqgQ_U5RBAQm4w.gVGDfe2bfbuFiCAOwtMF2A"
