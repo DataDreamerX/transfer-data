@@ -1,1 +1,1 @@
-npx shadcn@latest add "https://v0.dev/chat/b/b_uM6C91aXkpr?token=eyJhbGciOiJkaXIiLCJlbmMiOiJBMjU2R0NNIn0..RrNS4YSDb8FVp61P.O0s9cQdmkY4YpgliJEZcIMs9b1u-29TkuGQigk-qRXMfE7kx5esy-CXZsLo.DommXhqVOWB5SQax213UYg"
+npx shadcn@latest add "https://v0.dev/chat/b/b_xoVJWbSmSX4?token=eyJhbGciOiJkaXIiLCJlbmMiOiJBMjU2R0NNIn0..hljIZYIfbvtfRavJ.tAMjV3vpr4pSJ6q1f9dHtK2rhbawshZTSThdUM0Q-P9OITRI73zg1mnVdgk.TJiLsHkNKNrX8bvIFtQqFA"
