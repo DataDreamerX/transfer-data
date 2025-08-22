@@ -5,29 +5,43 @@ export class AudioStreamPlayer {
   private sourceBuffer: SourceBuffer | null = null;
   private queue: Uint8Array[] = [];
   private isAppending = false;
+  private speaking = false;
 
   constructor(private apiUrl: string) {}
 
   async start(text: string) {
+    this.stop(); // ensure previous session is cleared
+
     this.mediaSource = new MediaSource();
     this.audio = new Audio();
     this.audio.src = URL.createObjectURL(this.mediaSource);
 
+    this.audio.onplay = () => {
+      this.speaking = true;
+    };
+
+    this.audio.onpause = () => {
+      this.speaking = false;
+    };
+
+    this.audio.onended = () => {
+      this.speaking = false;
+    };
+
     this.mediaSource.addEventListener("sourceopen", () => {
       if (!this.mediaSource) return;
 
-      // 👇 adjust mime type if your API uses a different codec
       this.sourceBuffer = this.mediaSource.addSourceBuffer("audio/mpeg");
 
       this.sourceBuffer.addEventListener("updateend", () => {
         this.isAppending = false;
-        this.feedBuffer(); // continue appending queued chunks
+        this.feedBuffer();
       });
 
       this.streamFromApi(text);
     });
 
-    this.audio.play();
+    await this.audio.play();
   }
 
   private async streamFromApi(text: string) {
@@ -62,7 +76,9 @@ export class AudioStreamPlayer {
           const chunk = this.base64ToUint8Array(event.audio);
           this.enqueueChunk(chunk);
         } else if (event.type === "speech.audio.done") {
-          this.mediaSource?.endOfStream();
+          try {
+            this.mediaSource?.endOfStream();
+          } catch {}
         }
       }
     }
@@ -104,6 +120,11 @@ export class AudioStreamPlayer {
     this.sourceBuffer = null;
     this.queue = [];
     this.isAppending = false;
+    this.speaking = false;
+  }
+
+  isSpeaking(): boolean {
+    return this.speaking;
   }
 
   private base64ToUint8Array(base64: string): Uint8Array {
