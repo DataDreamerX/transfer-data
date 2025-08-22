@@ -1,15 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 export default function Home() {
   const [text, setText] = useState("Hello, streaming world!");
   const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
-  const [nextStartTime, setNextStartTime] = useState(0);
+
+  // keep track of scheduling time (not in React state!)
+  const nextStartTimeRef = useRef(0);
 
   const handleSpeak = async () => {
     const ctx = audioContext || new AudioContext();
     if (!audioContext) setAudioContext(ctx);
+
+    // reset scheduling before new playback
+    nextStartTimeRef.current = ctx.currentTime;
 
     const res = await fetch("/api/tts", {
       method: "POST",
@@ -63,10 +68,12 @@ export default function Home() {
       source.buffer = audioBuffer;
       source.connect(ctx.destination);
 
-      const startAt = Math.max(ctx.currentTime, nextStartTime);
+      // queue after the previous chunk
+      const startAt = Math.max(ctx.currentTime, nextStartTimeRef.current);
       source.start(startAt);
 
-      setNextStartTime(startAt + audioBuffer.duration);
+      // update the "next free time"
+      nextStartTimeRef.current = startAt + audioBuffer.duration;
     } catch (err) {
       console.error("Decode/play error:", err);
     }
