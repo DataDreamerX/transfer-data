@@ -18,18 +18,27 @@ export default function Home() {
 
       const queue: Uint8Array[] = [];
       let isStreamingDone = false;
+      let isProcessing = false;
 
       const processQueue = () => {
-        if (queue.length > 0 && !sourceBuffer.updating) {
+        if (isProcessing) return;
+        if (queue.length === 0) {
+          if (isStreamingDone && !sourceBuffer.updating) {
+            mediaSource.endOfStream();
+          }
+          return;
+        }
+        if (!sourceBuffer.updating) {
+          isProcessing = true;
           const chunk = queue.shift()!;
           sourceBuffer.appendBuffer(chunk);
-        } else if (queue.length === 0 && isStreamingDone && !sourceBuffer.updating) {
-          // ✅ only end when buffer finished updating
-          mediaSource.endOfStream();
         }
       };
 
-      sourceBuffer.addEventListener("updateend", processQueue);
+      sourceBuffer.addEventListener("updateend", () => {
+        isProcessing = false;
+        processQueue();
+      });
 
       const res = await fetch("/api/tts", {
         method: "POST",
@@ -63,7 +72,7 @@ export default function Home() {
           if (event.type === "speech.audio.delta") {
             const chunk = base64ToUint8Array(event.audio);
             queue.push(chunk);
-            processQueue();
+            processQueue(); // ✅ safe now
           } else if (event.type === "speech.audio.done") {
             isStreamingDone = true;
             processQueue();
