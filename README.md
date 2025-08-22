@@ -1,87 +1,91 @@
-"use client"
+"use client";
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Edit3, Copy, Volume2, ThumbsUp, ThumbsDown, RotateCcw, Share, MoreHorizontal } from "lucide-react"
+import { useState } from "react";
 
-interface ChatCardProps {
-  title?: string
-  message: string
-  avatarColor?: string
-  onEdit?: () => void
-  onCopy?: () => void
-  onSpeak?: () => void
-  onLike?: () => void
-  onDislike?: () => void
-  onRefresh?: () => void
-  onShare?: () => void
-  onMore?: () => void
-}
+export default function Home() {
+  const [text, setText] = useState("Hello, streaming world!");
+  const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
+  const [nextStartTime, setNextStartTime] = useState(0);
 
-export function ChatCard({
-  title = "gpt-4o",
-  message,
-  avatarColor = "bg-purple-500",
-  onEdit,
-  onCopy,
-  onSpeak,
-  onLike,
-  onDislike,
-  onRefresh,
-  onShare,
-  onMore,
-}: ChatCardProps) {
+  const handleSpeak = async () => {
+    const ctx = audioContext || new AudioContext();
+    if (!audioContext) setAudioContext(ctx);
+
+    const res = await fetch("/api/tts", {
+      method: "POST",
+      body: JSON.stringify({ text }),
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const reader = res.body!.getReader();
+    const decoder = new TextDecoder("utf-8");
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const parts = buffer.split("\n\n");
+      buffer = parts.pop() || "";
+
+      for (const part of parts) {
+        if (!part.startsWith("data:")) continue;
+        const jsonStr = part.replace(/^data:\s*/, "");
+        if (!jsonStr || jsonStr === "[DONE]") continue;
+
+        const event = JSON.parse(jsonStr);
+
+        if (event.type === "speech.audio.delta") {
+          const audioData = base64ToArrayBuffer(event.audio);
+          schedulePlayback(ctx, audioData);
+        } else if (event.type === "speech.audio.done") {
+          console.log("✅ Stream finished");
+        }
+      }
+    }
+  };
+
+  function base64ToArrayBuffer(base64: string) {
+    const binary = atob(base64);
+    const len = binary.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes.buffer;
+  }
+
+  async function schedulePlayback(ctx: AudioContext, chunk: ArrayBuffer) {
+    try {
+      const audioBuffer = await ctx.decodeAudioData(chunk);
+      const source = ctx.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(ctx.destination);
+
+      const startAt = Math.max(ctx.currentTime, nextStartTime);
+      source.start(startAt);
+
+      setNextStartTime(startAt + audioBuffer.duration);
+    } catch (err) {
+      console.error("Decode/play error:", err);
+    }
+  }
+
   return (
-    <Card className="w-full max-w-2xl">
-      <CardContent className="p-4">
-        <div className="flex items-start gap-3">
-          <Avatar className={`w-8 h-8 ${avatarColor} text-white text-xs font-medium`}>
-            <AvatarFallback className={`${avatarColor} text-white`}>{title.slice(0, 2).toUpperCase()}</AvatarFallback>
-          </Avatar>
-
-          <div className="flex-1 space-y-3">
-            <div>
-              <h3 className="font-medium text-sm mb-1">{title}</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">{message}</p>
-            </div>
-
-            <div className="flex items-center gap-1">
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-muted" onClick={onEdit}>
-                <Edit3 className="h-4 w-4" />
-              </Button>
-
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-muted" onClick={onCopy}>
-                <Copy className="h-4 w-4" />
-              </Button>
-
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-muted" onClick={onSpeak}>
-                <Volume2 className="h-4 w-4" />
-              </Button>
-
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-muted" onClick={onLike}>
-                <ThumbsUp className="h-4 w-4" />
-              </Button>
-
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-muted" onClick={onDislike}>
-                <ThumbsDown className="h-4 w-4" />
-              </Button>
-
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-muted" onClick={onRefresh}>
-                <RotateCcw className="h-4 w-4" />
-              </Button>
-
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-muted" onClick={onShare}>
-                <Share className="h-4 w-4" />
-              </Button>
-
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-muted" onClick={onMore}>
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  )
+    <div className="p-8">
+      <h1 className="text-2xl mb-4">🔊 TTS Streaming Test</h1>
+      <textarea
+        className="border p-2 w-full"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+      />
+      <button
+        onClick={handleSpeak}
+        className="mt-4 px-4 py-2 bg-blue-600 text-white rounded"
+      >
+        Speak
+      </button>
+    </div>
+  );
 }
