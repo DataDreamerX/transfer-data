@@ -1,88 +1,112 @@
-"use client";
+// utils/audioStreamPlayer.ts
+export class AudioStreamPlayer {
+  private mediaSource: MediaSource | null = null;
+  private audio: HTMLAudioElement | null = null;
+  private sourceBuffer: SourceBuffer | null = null;
+  private queue: Uint8Array[] = [];
+  private isAppending = false;
 
-import { useRef, useState } from "react";
+  constructor(private apiUrl: string) {}
 
-export default function Home() {
-  const [text, setText] = useState("Hello from streaming TTS!");
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  async start(text: string) {
+    this.mediaSource = new MediaSource();
+    this.audio = new Audio();
+    this.audio.src = URL.createObjectURL(this.mediaSource);
 
-  const handleSpeak = async () => {
-    const mediaSource = new MediaSource();
-    const audioEl = new Audio();
-    audioEl.src = URL.createObjectURL(mediaSource);
-    audioEl.play();
-    audioRef.current = audioEl;
+    this.mediaSource.addEventListener("sourceopen", () => {
+      if (!this.mediaSource) return;
 
-    mediaSource.addEventListener("sourceopen", async () => {
-      const sourceBuffer = mediaSource.addSourceBuffer("audio/mpeg");
+      // 👇 adjust mime type if your API uses a different codec
+      this.sourceBuffer = this.mediaSource.addSourceBuffer("audio/mpeg");
 
-      const queue: Uint8Array[] = [];
-      let isStreamingDone = false;
-      let isProcessing = false;
-
-      const processQueue = () => {
-        if (isProcessing) return;
-        if (queue.length === 0) {
-          if (isStreamingDone && !sourceBuffer.updating) {
-            mediaSource.endOfStream();
-          }
-          return;
-        }
-        if (!sourceBuffer.updating) {
-          isProcessing = true;
-          const chunk = queue.shift()!;
-          sourceBuffer.appendBuffer(chunk);
-        }
-      };
-
-      sourceBuffer.addEventListener("updateend", () => {
-        isProcessing = false;
-        processQueue();
+      this.sourceBuffer.addEventListener("updateend", () => {
+        this.isAppending = false;
+        this.feedBuffer(); // continue appending queued chunks
       });
 
-      const res = await fetch("/api/tts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
-      });
+      this.streamFromApi(text);
+    });
 
-      const reader = res.body!.getReader();
-      const decoder = new TextDecoder("utf-8");
-      let buffer = "";
+    this.audio.play();
+  }
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) {
-          isStreamingDone = true;
-          processQueue();
-          break;
-        }
+  private async streamFromApi(text: string) {
+    const response = await fetch(this.apiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
 
-        buffer += decoder.decode(value, { stream: true });
-        const parts = buffer.split("\n\n");
-        buffer = parts.pop() || "";
+    const reader = response.body?.getReader();
+    if (!reader) return;
 
-        for (const part of parts) {
-          if (!part.startsWith("data:")) continue;
-          const jsonStr = part.replace(/^data:\s*/, "");
-          if (!jsonStr || jsonStr === "[DONE]") continue;
+    const decoder = new TextDecoder("utf-8");
+    let buffer = "";
 
-          const event = JSON.parse(jsonStr);
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
 
-          if (event.type === "speech.audio.delta") {
-            const chunk = base64ToUint8Array(event.audio);
-            queue.push(chunk);
-            processQueue(); // ✅ safe now
-          } else if (event.type === "speech.audio.done") {
-            isStreamingDone = true;
-            processQueue();
-          }
+      buffer += decoder.decode(value, { stream: true });
+      const parts = buffer.split("\n\n");
+      buffer = parts.pop() || "";
+
+      for (const part of parts) {
+        if (!part.startsWith("data:")) continue;
+        const jsonStr = part.replace(/^data:\s*/, "");
+        if (!jsonStr.trim()) continue;
+
+        const event = JSON.parse(jsonStr);
+
+        if (event.type === "speech.audio.delta") {
+          const chunk = this.base64ToUint8Array(event.audio);
+          this.enqueueChunk(chunk);
+        } else if (event.type === "speech.audio.done") {
+          this.mediaSource?.endOfStream();
         }
       }
-    });
-  };
+    }
+  }
 
-  function base64ToUint8Array(base64: string) {
+  private enqueueChunk(chunk: Uint8Array) {
+    this.queue.push(chunk);
+    this.feedBuffer();
+  }
+
+  private feedBuffer() {
+    if (!this.sourceBuffer || this.isAppending) return;
+    if (this.queue.length === 0) return;
+
+    this.isAppending = true;
+    const chunk = this.queue.shift();
+    if (chunk) {
+      try {
+        this.sourceBuffer.appendBuffer(chunk);
+      } catch (err) {
+        console.error("appendBuffer error:", err);
+        this.isAppending = false;
+      }
+    }
+  }
+
+  stop() {
+    if (this.audio) {
+      this.audio.pause();
+      this.audio.src = "";
+      this.audio = null;
+    }
+    if (this.mediaSource) {
+      try {
+        this.mediaSource.endOfStream();
+      } catch {}
+      this.mediaSource = null;
+    }
+    this.sourceBuffer = null;
+    this.queue = [];
+    this.isAppending = false;
+  }
+
+  private base64ToUint8Array(base64: string): Uint8Array {
     const binary = atob(base64);
     const len = binary.length;
     const bytes = new Uint8Array(len);
@@ -91,21 +115,4 @@ export default function Home() {
     }
     return bytes;
   }
-
-  return (
-    <div className="p-8">
-      <h1 className="text-2xl mb-4">🔊 Streaming TTS (MP3 chunks)</h1>
-      <textarea
-        className="border p-2 w-full"
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-      />
-      <button
-        onClick={handleSpeak}
-        className="mt-4 px-4 py-2 bg-blue-600 text-white rounded"
-      >
-        Speak
-      </button>
-    </div>
-  );
 }
