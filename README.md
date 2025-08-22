@@ -3,85 +3,77 @@
 import { useRef, useState } from "react";
 
 export default function Home() {
-  const [text, setText] = useState("Hello, streaming world!");
-  const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
-
-  // keep track of scheduling time (not in React state!)
-  const nextStartTimeRef = useRef(0);
+  const [text, setText] = useState("Hello from streaming TTS!");
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const handleSpeak = async () => {
-    const ctx = audioContext || new AudioContext();
-    if (!audioContext) setAudioContext(ctx);
+    const mediaSource = new MediaSource();
+    const audioEl = new Audio();
+    audioEl.src = URL.createObjectURL(mediaSource);
+    audioEl.play();
+    audioRef.current = audioEl;
 
-    // reset scheduling before new playback
-    nextStartTimeRef.current = ctx.currentTime;
+    mediaSource.addEventListener("sourceopen", async () => {
+      const sourceBuffer = mediaSource.addSourceBuffer('audio/mpeg'); // mp3 chunks
 
-    const res = await fetch("/api/tts", {
-      method: "POST",
-      body: JSON.stringify({ text }),
-      headers: { "Content-Type": "application/json" },
-    });
+      const res = await fetch("/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
 
-    const reader = res.body!.getReader();
-    const decoder = new TextDecoder("utf-8");
-    let buffer = "";
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder("utf-8");
+      let buffer = "";
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          mediaSource.endOfStream();
+          break;
+        }
 
-      buffer += decoder.decode(value, { stream: true });
-      const parts = buffer.split("\n\n");
-      buffer = parts.pop() || "";
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split("\n\n");
+        buffer = parts.pop() || "";
 
-      for (const part of parts) {
-        if (!part.startsWith("data:")) continue;
-        const jsonStr = part.replace(/^data:\s*/, "");
-        if (!jsonStr || jsonStr === "[DONE]") continue;
+        for (const part of parts) {
+          if (!part.startsWith("data:")) continue;
+          const jsonStr = part.replace(/^data:\s*/, "");
+          if (!jsonStr || jsonStr === "[DONE]") continue;
 
-        const event = JSON.parse(jsonStr);
+          const event = JSON.parse(jsonStr);
 
-        if (event.type === "speech.audio.delta") {
-          const audioData = base64ToArrayBuffer(event.audio);
-          schedulePlayback(ctx, audioData);
-        } else if (event.type === "speech.audio.done") {
-          console.log("✅ Stream finished");
+          if (event.type === "speech.audio.delta") {
+            const chunk = base64ToUint8Array(event.audio);
+            // append to buffer when it's ready
+            if (!sourceBuffer.updating) {
+              sourceBuffer.appendBuffer(chunk);
+            } else {
+              sourceBuffer.addEventListener("updateend", function handler() {
+                sourceBuffer.removeEventListener("updateend", handler);
+                sourceBuffer.appendBuffer(chunk);
+              });
+            }
+          }
         }
       }
-    }
+    });
   };
 
-  function base64ToArrayBuffer(base64: string) {
+  function base64ToUint8Array(base64: string) {
     const binary = atob(base64);
     const len = binary.length;
     const bytes = new Uint8Array(len);
     for (let i = 0; i < len; i++) {
       bytes[i] = binary.charCodeAt(i);
     }
-    return bytes.buffer;
-  }
-
-  async function schedulePlayback(ctx: AudioContext, chunk: ArrayBuffer) {
-    try {
-      const audioBuffer = await ctx.decodeAudioData(chunk);
-      const source = ctx.createBufferSource();
-      source.buffer = audioBuffer;
-      source.connect(ctx.destination);
-
-      // queue after the previous chunk
-      const startAt = Math.max(ctx.currentTime, nextStartTimeRef.current);
-      source.start(startAt);
-
-      // update the "next free time"
-      nextStartTimeRef.current = startAt + audioBuffer.duration;
-    } catch (err) {
-      console.error("Decode/play error:", err);
-    }
+    return bytes;
   }
 
   return (
     <div className="p-8">
-      <h1 className="text-2xl mb-4">🔊 TTS Streaming Test</h1>
+      <h1 className="text-2xl mb-4">🔊 Streaming TTS</h1>
       <textarea
         className="border p-2 w-full"
         value={text}
