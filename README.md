@@ -14,7 +14,22 @@ export default function Home() {
     audioRef.current = audioEl;
 
     mediaSource.addEventListener("sourceopen", async () => {
-      const sourceBuffer = mediaSource.addSourceBuffer('audio/mpeg'); // mp3 chunks
+      const sourceBuffer = mediaSource.addSourceBuffer("audio/mpeg");
+
+      const queue: Uint8Array[] = [];
+      let isStreamingDone = false;
+
+      const processQueue = () => {
+        if (queue.length > 0 && !sourceBuffer.updating) {
+          const chunk = queue.shift()!;
+          sourceBuffer.appendBuffer(chunk);
+        } else if (queue.length === 0 && isStreamingDone && !sourceBuffer.updating) {
+          // ✅ only end when buffer finished updating
+          mediaSource.endOfStream();
+        }
+      };
+
+      sourceBuffer.addEventListener("updateend", processQueue);
 
       const res = await fetch("/api/tts", {
         method: "POST",
@@ -29,7 +44,8 @@ export default function Home() {
       while (true) {
         const { done, value } = await reader.read();
         if (done) {
-          mediaSource.endOfStream();
+          isStreamingDone = true;
+          processQueue();
           break;
         }
 
@@ -46,15 +62,11 @@ export default function Home() {
 
           if (event.type === "speech.audio.delta") {
             const chunk = base64ToUint8Array(event.audio);
-            // append to buffer when it's ready
-            if (!sourceBuffer.updating) {
-              sourceBuffer.appendBuffer(chunk);
-            } else {
-              sourceBuffer.addEventListener("updateend", function handler() {
-                sourceBuffer.removeEventListener("updateend", handler);
-                sourceBuffer.appendBuffer(chunk);
-              });
-            }
+            queue.push(chunk);
+            processQueue();
+          } else if (event.type === "speech.audio.done") {
+            isStreamingDone = true;
+            processQueue();
           }
         }
       }
@@ -73,7 +85,7 @@ export default function Home() {
 
   return (
     <div className="p-8">
-      <h1 className="text-2xl mb-4">🔊 Streaming TTS</h1>
+      <h1 className="text-2xl mb-4">🔊 Streaming TTS (MP3 chunks)</h1>
       <textarea
         className="border p-2 w-full"
         value={text}
