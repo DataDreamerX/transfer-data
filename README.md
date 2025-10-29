@@ -1,105 +1,173 @@
-# adk_manager.py
-import asyncio
-import subprocess
-import logging
-from contextlib import asynccontextmanager
-from utils import find_available_port
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import jakarta.validation.constraints.NotBlank;
 
-logging.basicConfig(level=logging.INFO)
+/**
+ * Base abstract class for any MCP Server configuration.
+ * Uses Jackson's polymorphism to handle different server types.
+ */
+@JsonTypeInfo(
+        use = JsonTypeInfo.Id.NAME,
+        include = JsonTypeInfo.As.PROPERTY,
+        property = "type" // This JSON field will determine the subclass
+)
+@JsonSubTypes({
+        @JsonSubTypes.Type(value = LocalMcpServer.class, name = "local"),
+        @JsonSubTypes.Type(value = RemoteMcpServer.class, name = "remote")
+})
+public abstract class McpServer {
 
-@asynccontextmanager
-async def mcp_server_process(server_id: int):
-    """
-    Manages the lifecycle of a persistent MCP server process on a unique port.
-    """
-    port = find_available_port()
-    url = f"http://localhost:{port}"
-    # The --port argument is passed to the start-mcp-server command
-    command = [
-        "uvx",
-        "--from", "git+https://github.com/oraios/serena",
-        "serena",
-        "start-mcp-server",
-        "--port", str(port)
-    ]
-    process = None
-    try:
-        logging.info(f"Agent {server_id}: Starting MCP server on {url}...")
-        process = subprocess.Popen(
-            command,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,  # Capture both stdout and stderr
-            text=True,
-        )
+    @NotBlank(message = "Server Name is required.")
+    private String serverName;
 
-        # Wait for the server to start and print output
-        started = False
-        timeout = 20
-        while not started and timeout > 0:
-            output = process.stdout.readline()
-            if "server has started" in output.lower():
-                started = True
-                logging.info(f"Agent {server_id}: Server started successfully.")
-            timeout -= 1
-            await asyncio.sleep(1)
-            
-        if not started:
-            raise RuntimeError(f"Agent {server_id}: MCP server failed to start on time.")
+    private boolean autoStart = false;
+
+    // Getters and Setters
+    public String getServerName() {
+        return serverName;
+    }
+
+    public void setServerName(String serverName) {
+        this.serverName = serverName;
+    }
+
+    public boolean isAutoStart() {
+        return autoStart;
+    }
+
+    public void setAutoStart(boolean autoStart) {
+        this.autoStart = autoStart;
+    }
+}
+
+
+import com.fasterxml.jackson.annotation.JsonTypeName;
+import jakarta.validation.constraints.NotBlank;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Represents a locally managed MCP server that is started with a command.
+ * Corresponds to the "Create Manually" tab.
+ */
+@JsonTypeName("local") // Maps to type = "local" in the JSON
+public class LocalMcpServer extends McpServer {
+
+    @NotBlank(message = "Command is required for local servers.")
+    private String command;
+
+    // Use a List for arguments, as shown in your JSON example
+    private List<String> args;
+
+    // Use a Map for environment variables
+    private Map<String, String> env;
+
+    // Getters and Setters
+    public String getCommand() {
+        return command;
+    }
+
+    public void setCommand(String command) {
+        this.command = command;
+    }
+
+    public List<String> getArgs() {
+        return args;
+    }
+
+    public void setArgs(List<String> args) {
+        this.args = args;
+    }
+
+    public Map<String, String> getEnv() {
+        return env;
+    }
+
+    public void setEnv(Map<String, String> env) {
+        this.env = env;
+    }
+}
+
+
+
+import com.fasterxml.jackson.annotation.JsonTypeName;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import org.hibernate.validator.constraints.URL;
+
+/**
+ * Represents a connection to a remote MCP server.
+ * Corresponds to the "Remote Server" tab.
+ */
+@JsonTypeName("remote") // Maps to type = "remote" in the JSON
+public class RemoteMcpServer extends McpServer {
+
+    @NotBlank(message = "Server URL is required.")
+    @URL(message = "Must be a valid URL.")
+    private String serverUrl;
+
+    // This could be sensitive, handle with care
+    private String bearerToken;
+
+    @NotNull(message = "Transport Type is required.")
+    private TransportType transportType;
+
+    // Getters and Setters
+    public String getServerUrl() {
+        return serverUrl;
+    }
+
+    public void setServerUrl(String serverUrl) {
+        this.serverUrl = serverUrl;
+    }
+
+    public String getBearerToken() {
+        return bearerToken;
+    }
+
+    public void setBearerToken(String bearerToken) {
+        this.bearerToken = bearerToken;
+    }
+
+    public TransportType getTransportType() {
+        return transportType;
+    }
+
+    public void setTransportType(TransportType transportType) {
+        this.transportType = transportType;
+    }
+}
+
+
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
+import jakarta.validation.Valid;
+
+@RestController
+public class McpServerController {
+
+    @PostMapping("/api/mcp-servers")
+    public ResponseEntity<?> addMcpServer(@Valid @RequestBody McpServer server) {
         
-        yield url
-
-    except Exception as e:
-        logging.error(f"Agent {server_id}: Failed to start MCP server: {e}")
-        raise
-    finally:
-        if process and process.poll() is None:
-            logging.info(f"Agent {server_id}: Terminating MCP server process.")
-            process.terminate()
-            process.wait()
-            logging.info(f"Agent {server_id}: MCP server process terminated.")
-
-
-
-# agents.py
-import adk
-import asyncio
-from adk.mcp.tools import MCPToolset
-from adk.mcp.types import StreamableHttpServerParameters
-from adk.tools import LlmAgent, tool
-from adk_manager import mcp_server_process
-import logging
-
-logging.basicConfig(level=logging.INFO)
-
-# Define a tool for each agent
-@tool(name="internal_info", description="Provides information about the ADK agent.")
-def internal_info(query: str) -> str:
-    return "This ADK agent is configured with its own dedicated Serena MCP server."
-
-async def create_agent(server_id: int):
-    """Creates a single agent with its own persistent MCP server."""
-    async with mcp_server_process(server_id) as server_url:
-        mcp_toolset = MCPToolset(
-            connection_params=StreamableHttpServerParameters(url=server_url),
-            name=f"serena_agent_{server_id}",
-            description=f"A dedicated Serena MCP server for agent {server_id}.",
-        )
-        agent = LlmAgent(
-            tools=[internal_info, mcp_toolset],
-            instruction=f"You are Agent {server_id}. You can use the 'internal_info' tool or the 'serena_agent_{server_id}' tool. The serena server is running persistently in the background.",
-            model="gemini-1.5-flash",
-        )
+        // Spring will have already created either a LocalMcpServer or RemoteMcpServer
         
-        logging.info(f"Agent {server_id}: Starting ADK web interface...")
-        await adk.run_web(agent)
+        if (server instanceof LocalMcpServer localServer) {
+            // Logic to save or start the local server
+            System.out.println("Adding new local server: " + localServer.getServerName());
+            System.out.println("Command: " + localServer.getCommand());
 
+        } else if (server instanceof RemoteMcpServer remoteServer) {
+            // Logic to connect to and save the remote server
+            System.out.println("Adding new remote server: " + remoteServer.getServerName());
+            System.out.println("URL: " + remoteServer.getServerUrl());
+            System.out.println("Transport: " + remoteServer.getTransportType());
+        }
 
-async def main():
-    """Runs multiple agents with their own servers concurrently."""
-    num_agents = 2  # Number of agents to run
-    tasks = [create_agent(i) for i in range(num_agents)]
-    await asyncio.gather(*tasks)
-
-
-if __name__ == '__main__':
-    asyncio.run(main())
+        // ... save the server to your database or service ...
+        
+        return ResponseEntity.ok("Server " + server.getServerName() + " added.");
+    }
+}
