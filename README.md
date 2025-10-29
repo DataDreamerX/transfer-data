@@ -1,173 +1,156 @@
-import com.fasterxml.jackson.annotation.JsonSubTypes;
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import jakarta.validation.constraints.NotBlank;
-
-/**
- * Base abstract class for any MCP Server configuration.
- * Uses Jackson's polymorphism to handle different server types.
- */
-@JsonTypeInfo(
-        use = JsonTypeInfo.Id.NAME,
-        include = JsonTypeInfo.As.PROPERTY,
-        property = "type" // This JSON field will determine the subclass
-)
-@JsonSubTypes({
-        @JsonSubTypes.Type(value = LocalMcpServer.class, name = "local"),
-        @JsonSubTypes.Type(value = RemoteMcpServer.class, name = "remote")
-})
-public abstract class McpServer {
-
-    @NotBlank(message = "Server Name is required.")
-    private String serverName;
-
-    private boolean autoStart = false;
-
-    // Getters and Setters
-    public String getServerName() {
-        return serverName;
-    }
-
-    public void setServerName(String serverName) {
-        this.serverName = serverName;
-    }
-
-    public boolean isAutoStart() {
-        return autoStart;
-    }
-
-    public void setAutoStart(boolean autoStart) {
-        this.autoStart = autoStart;
-    }
-}
-
-
-import com.fasterxml.jackson.annotation.JsonTypeName;
-import jakarta.validation.constraints.NotBlank;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
-import java.util.Map;
 
-/**
- * Represents a locally managed MCP server that is started with a command.
- * Corresponds to the "Create Manually" tab.
- */
-@JsonTypeName("local") // Maps to type = "local" in the JSON
-public class LocalMcpServer extends McpServer {
+@Service
+public class McpServerService {
 
-    @NotBlank(message = "Command is required for local servers.")
-    private String command;
+    private final McpServerRepository mcpServerRepository;
 
-    // Use a List for arguments, as shown in your JSON example
-    private List<String> args;
-
-    // Use a Map for environment variables
-    private Map<String, String> env;
-
-    // Getters and Setters
-    public String getCommand() {
-        return command;
+    @Autowired
+    public McpServerService(McpServerRepository mcpServerRepository) {
+        this.mcpServerRepository = mcpServerRepository;
     }
 
-    public void setCommand(String command) {
-        this.command = command;
+    /**
+     * Create a new server (local or remote).
+     * The polymorphic mapping is handled by Jackson before this method is even called.
+     */
+    @Transactional
+    public McpServer createServer(McpServer server) {
+        // You could add validation logic here, e.g., check for duplicate names
+        return mcpServerRepository.save(server);
     }
 
-    public List<String> getArgs() {
-        return args;
+    /**
+     * Get a list of all servers.
+     */
+    public List<McpServer> getAllServers() {
+        return mcpServerRepository.findAll();
     }
 
-    public void setArgs(List<String> args) {
-        this.args = args;
+    /**
+     * Get a single server by its ID.
+     */
+    public McpServer getServerById(Long id) {
+        return mcpServerRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("McpServer not found with id: " + id));
     }
 
-    public Map<String, String> getEnv() {
-        return env;
+    /**
+     * Delete a server by its ID.
+     */
+    @Transactional
+    public void deleteServer(Long id) {
+        McpServer server = getServerById(id); // Ensures server exists before deleting
+        mcpServerRepository.delete(server);
     }
 
-    public void setEnv(Map<String, String> env) {
-        this.env = env;
-    }
-}
+    /**
+     * Update an existing server.
+     * This logic is more complex because it must handle the two subtypes.
+     */
+    @Transactional
+    public McpServer updateServer(Long id, McpServer serverDetails) {
+        McpServer existingServer = getServerById(id);
 
-
-
-import com.fasterxml.jackson.annotation.JsonTypeName;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import org.hibernate.validator.constraints.URL;
-
-/**
- * Represents a connection to a remote MCP server.
- * Corresponds to the "Remote Server" tab.
- */
-@JsonTypeName("remote") // Maps to type = "remote" in the JSON
-public class RemoteMcpServer extends McpServer {
-
-    @NotBlank(message = "Server URL is required.")
-    @URL(message = "Must be a valid URL.")
-    private String serverUrl;
-
-    // This could be sensitive, handle with care
-    private String bearerToken;
-
-    @NotNull(message = "Transport Type is required.")
-    private TransportType transportType;
-
-    // Getters and Setters
-    public String getServerUrl() {
-        return serverUrl;
-    }
-
-    public void setServerUrl(String serverUrl) {
-        this.serverUrl = serverUrl;
-    }
-
-    public String getBearerToken() {
-        return bearerToken;
-    }
-
-    public void setBearerToken(String bearerToken) {
-        this.bearerToken = bearerToken;
-    }
-
-    public TransportType getTransportType() {
-        return transportType;
-    }
-
-    public void setTransportType(TransportType transportType) {
-        this.transportType = transportType;
-    }
-}
-
-
-
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RestController;
-import jakarta.validation.Valid;
-
-@RestController
-public class McpServerController {
-
-    @PostMapping("/api/mcp-servers")
-    public ResponseEntity<?> addMcpServer(@Valid @RequestBody McpServer server) {
-        
-        // Spring will have already created either a LocalMcpServer or RemoteMcpServer
-        
-        if (server instanceof LocalMcpServer localServer) {
-            // Logic to save or start the local server
-            System.out.println("Adding new local server: " + localServer.getServerName());
-            System.out.println("Command: " + localServer.getCommand());
-
-        } else if (server instanceof RemoteMcpServer remoteServer) {
-            // Logic to connect to and save the remote server
-            System.out.println("Adding new remote server: " + remoteServer.getServerName());
-            System.out.println("URL: " + remoteServer.getServerUrl());
-            System.out.println("Transport: " + remoteServer.getTransportType());
+        // Basic check: Don't allow changing the server type (e.g., local -> remote) via update.
+        if (!existingServer.getClass().equals(serverDetails.getClass())) {
+            throw new IllegalArgumentException("Cannot change server type. Please delete and recreate.");
         }
 
-        // ... save the server to your database or service ...
-        
-        return ResponseEntity.ok("Server " + server.getServerName() + " added.");
+        // --- Update common fields ---
+        existingServer.setServerName(serverDetails.getServerName());
+        existingServer.setAutoStart(serverDetails.isAutoStart());
+
+        // --- Update type-specific fields ---
+        if (existingServer instanceof LocalMcpServer existingLocalServer) {
+            LocalMcpServer localDetails = (LocalMcpServer) serverDetails;
+            existingLocalServer.setCommand(localDetails.getCommand());
+            existingLocalServer.setArgs(localDetails.getArgs());
+            existingLocalServer.setEnv(localDetails.getEnv());
+        } 
+        else if (existingServer instanceof RemoteMcpServer existingRemoteServer) {
+            RemoteMcpServer remoteDetails = (RemoteMcpServer) serverDetails;
+            existingRemoteServer.setServerUrl(remoteDetails.getServerUrl());
+            existingRemoteServer.setBearerToken(remoteDetails.getBearerToken());
+            existingRemoteServer.setTransportType(remoteDetails.getTransportType());
+        }
+
+        return mcpServerRepository.save(existingServer);
+    }
+}
+
+
+
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/mcp-servers") // Base path for all endpoints in this controller
+public class McpServerController {
+
+    private final McpServerService mcpServerService;
+
+    @Autowired
+    public McpServerController(McpServerService mcpServerService) {
+        this.mcpServerService = mcpServerService;
+    }
+
+    /**
+     * POST /api/mcp-servers
+     * Create a new MCP Server.
+     * Jackson will read the "type" field and create the correct object.
+     */
+    @PostMapping
+    public ResponseEntity<McpServer> createMcpServer(@Valid @RequestBody McpServer server) {
+        McpServer createdServer = mcpServerService.createServer(server);
+        return new ResponseEntity<>(createdServer, HttpStatus.CREATED);
+    }
+
+    /**
+     * GET /api/mcp-servers
+     * Get all MCP Servers.
+     */
+    @GetMapping
+    public List<McpServer> getAllMcpServers() {
+        return mcpServerService.getAllServers();
+    }
+
+    /**
+     * GET /api/mcp-servers/{id}
+     * Get a single MCP Server by its ID.
+     */
+    @GetMapping("/{id}")
+    public ResponseEntity<McpServer> getMcpServerById(@PathVariable(value = "id") Long id) {
+        McpServer server = mcpServerService.getServerById(id);
+        return ResponseEntity.ok(server);
+    }
+
+    /**
+     * PUT /api/mcp-servers/{id}
+     * Update an existing MCP Server.
+     */
+    @PutMapping("/{id}")
+    public ResponseEntity<McpServer> updateMcpServer(@PathVariable(value = "id") Long id,
+                                                    @Valid @RequestBody McpServer serverDetails) {
+        McpServer updatedServer = mcpServerService.updateServer(id, serverDetails);
+        return ResponseEntity.ok(updatedServer);
+    }
+
+    /**
+     * DELETE /api/mcp-servers/{id}
+     * Delete an MCP Server.
+     */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteMcpServer(@PathVariable(value = "id") Long id) {
+        mcpServerService.deleteServer(id);
+        return ResponseEntity.noContent().build(); // HTTP 204
     }
 }
